@@ -1,4 +1,5 @@
 using Scalar.AspNetCore;
+using ResourcePlatform.Domain;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,13 +13,21 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
+
 app.UseHttpsRedirection();
+
 
 app.MapGet("/", () => "Resource Management Platform API");
 
 app.MapGet("/api/ping", () => new PingResponse("ok", DateTimeOffset.UtcNow))
     .WithName("Ping")
     .WithSummary("Liveness check.");
+
+app.MapGet("/api/dev/sample", () => new Organization
+{
+    Name = "Nashville Medical Group",
+    Slug = "nashville-medical"
+});
 
 app.Run();
 
