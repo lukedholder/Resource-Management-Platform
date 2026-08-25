@@ -68,7 +68,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
         b.Entity<Resource>(e =>
         {
-            e.Property(x => x.Name).HasMaxLength(200).IsRequired(); 
+            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.Description).HasMaxLength(2000);
             e.Property(x => x.AssetTag).HasMaxLength(100);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(50);
@@ -77,7 +77,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .WithMany(o => o.Resources)
                 .HasForeignKey(x => x.OrganizationId)
                 .OnDelete(DeleteBehavior.Cascade);
-            
+
             e.HasOne(x => x.ResourceType)
                 .WithMany(t => t.Resources)
                 .HasForeignKey(x => x.ResourceTypeId)
@@ -95,7 +95,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
             e.HasIndex(x => x.OrganizationId);
             e.HasIndex(x => new { x.OrganizationId, x.LocationId });
-            e.HasIndex(x => new { x.OrganizationId, x.ResourceTypeId});
+            e.HasIndex(x => new { x.OrganizationId, x.ResourceTypeId });
         });
 
         b.Entity<Reservation>(e =>
