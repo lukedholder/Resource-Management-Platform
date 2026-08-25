@@ -1,9 +1,16 @@
 using Scalar.AspNetCore;
 using ResourcePlatform.Domain;
+using Microsoft.EntityFrameworkCore;
+using ResourcePlatform.Infrastructure;
 
+
+// Registration
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
+
 
 var app = builder.Build();
 
