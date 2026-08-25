@@ -13,7 +13,7 @@ public class Organization
 
     public ICollection<OrganizationMembership> Memberships { get; set; } = [];
 
-    public ICollection<Department> Departents { get; set; } = [];
+    public ICollection<Department> Departments { get; set; } = [];
     public ICollection<Location> Locations { get; set; } = [];
     public ICollection<ResourceType> ResourceTypes { get; set; } = [];
     public ICollection<Resource> Resources { get; set; } = [];

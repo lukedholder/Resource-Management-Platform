@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/ResourcePlatform.Domain/ResourcePlatform.Domain.csproj" />
+    <Project Path="src/ResourcePlatform.Infrastructure/ResourcePlatform.Infrastructure.csproj" />
     <Project Path="src/ResourcePlatform.Web/ResourcePlatform.Web.csproj" />
   </Folder>
 </Solution>
