@@ -7,9 +7,9 @@ namespace ResourcePlatform.Infrastructure;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
     public DbSet<Organization> Organizations => Set<Organization>();
-    public DbSet<OrganizationMemberships> Memberships => Set<OrganizationMembership>();
+    public DbSet<OrganizationMembership> Memberships => Set<OrganizationMembership>();
     public DbSet<Role> Roles => Set<Role>();
-    public DbSet<Permission> Permissions => Set<Rols>();
+    public DbSet<Permission> Permissions => Set<Permission>();
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<Location> Locations => Set<Location>();
@@ -48,10 +48,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.PostalCode).HasMaxLength(20);
             e.Property(x => x.Country).HasMaxLength(100);
             e.Property(x => x.TimeZoneId).HasMaxLength(100).IsRequired();
-            e.hasOne(x => x.Organization)
+            e.HasOne(x => x.Organization)
                 .WithMany(o => o.Locations)
                 .HasForeignKey(x => x.OrganizationId)
-                .OnDelete(DeleteBehaviour.Cascade);
+                .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.OrganizationId);
         });
 
@@ -74,8 +74,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(50);
 
             e.HasOne(x => x.Organization)
-                .WithMany(o => Resources)
-                .HasForeignKey(x => x.OrganizatinId)
+                .WithMany(o => o.Resources)
+                .HasForeignKey(x => x.OrganizationId)
                 .OnDelete(DeleteBehavior.Cascade);
             
             e.HasOne(x => x.ResourceType)
@@ -93,7 +93,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
                 .HasForeignKey(x => x.DepartmentId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            e.HasIndex(x => x.OrganizatinId);
+            e.HasIndex(x => x.OrganizationId);
             e.HasIndex(x => new { x.OrganizationId, x.LocationId });
             e.HasIndex(x => new { x.OrganizationId, x.ResourceTypeId});
         });
