@@ -1,10 +1,12 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ResourcePlatform.Domain;
 
 namespace ResourcePlatform.Infrastructure;
 
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options)
+    : IdentityUserContext<ApplicationUser, Guid>(options)
 {
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<OrganizationMembership> Memberships => Set<OrganizationMembership>();
@@ -20,6 +22,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        base.OnModelCreating(b);
+
+        b.Entity<ApplicationUser>(e =>
+        {
+            e.Property(x => x.DisplayName).HasMaxLength(200).IsRequired();
+        });
+
         b.Entity<Organization>(e =>
         {
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();

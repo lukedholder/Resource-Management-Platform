@@ -16,9 +16,9 @@ public static class LocationEndpoints
 
         group.MapGet("/", GetAll).WithName("ListLocations");
         group.MapGet("/{id:guid}", GetById).WithName("GetLocation");
-        group.MapPost("/", Create).WithName("CreateLocation");
-        group.MapPut("/{id:guid}", Update).WithName("UpdateLocation");
-        group.MapDelete("/{id:guid}", Delete).WithName("DeleteLocation");
+        group.MapPost("/", Create).WithName("CreateLocation").RequireAuthorization();
+        group.MapPut("/{id:guid}", Update).WithName("UpdateLocation").RequireAuthorization();
+        group.MapDelete("/{id:guid}", Delete).WithName("DeleteLocation").RequireAuthorization();
 
         return group;
     }

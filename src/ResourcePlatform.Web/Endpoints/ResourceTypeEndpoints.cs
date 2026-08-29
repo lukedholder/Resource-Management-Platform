@@ -18,9 +18,9 @@ public static class ResourceTypeEndpoints
 
         group.MapGet("/", GetAll).WithName("ListResourceTypes");
         group.MapGet("/{id:guid}", GetById).WithName("GetResourceType");
-        group.MapPost("/", Create).WithName("CreateResourceType");
-        group.MapPut("/{id:guid}", Update).WithName("UpdateResourceType");
-        group.MapDelete("/{id:guid}", Delete).WithName("DeleteResourceType");
+        group.MapPost("/", Create).WithName("CreateResourceType").RequireAuthorization();
+        group.MapPut("/{id:guid}", Update).WithName("UpdateResourceType").RequireAuthorization();
+        group.MapDelete("/{id:guid}", Delete).WithName("DeleteResourceType").RequireAuthorization();
 
         return group;
     }

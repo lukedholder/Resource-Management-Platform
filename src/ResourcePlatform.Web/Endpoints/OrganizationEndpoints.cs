@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using ResourcePlatform.Domain;
 using ResourcePlatform.Infrastructure;
 using ResourcePlatform.Web.Contracts;
+using ResourcePlatform.Web.Services;
 
 namespace ResourcePlatform.Web.Endpoints;
 
@@ -25,6 +26,7 @@ public static class OrganizationEndpoints
             .WithSummary("Get one organization by id.");
 
         group.MapPost("/", Create)
+            .RequireAuthorization()
             .WithName("CreateOrganization")
             .WithSummary("Create an organization.");
 
@@ -70,6 +72,7 @@ public static class OrganizationEndpoints
     private static async Task<Results<Created<OrganizationResponse>, Conflict<ProblemDetails>>> Create(
         CreateOrganizationRequest request,
         AppDbContext db,
+        ICurrentUser currentUser,
         CancellationToken ct)
     {
         if (await db.Organizations.AsNoTracking().AnyAsync(o => o.Slug == request.Slug, ct))
@@ -79,7 +82,7 @@ public static class OrganizationEndpoints
         {
             Name = request.Name,
             Slug = request.Slug,
-            CreatedByUserId = Guid.Empty    // TODO: the authenticated user
+            CreatedByUserId = currentUser.UserId!.Value
         };
 
         db.Organizations.Add(org);
