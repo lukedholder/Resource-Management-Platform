@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using ResourcePlatform.Domain;
 using ResourcePlatform.Infrastructure;
 using ResourcePlatform.Web.Contracts;
+using ResourcePlatform.Web.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 
@@ -13,33 +14,30 @@ public static class ResourceTypeEndpoints
 {
     public static RouteGroupBuilder MapResourceTypeEndpoints(this IEndpointRouteBuilder routes)
     {
-        // TEMP: {orgId} comes from the client.
-        var group = routes.MapGroup("/api/organizations/{orgId:guid}/resource-types").WithTags("ResourceTypes");
+        var group = routes.MapGroup("/api/resource-types")
+                            .WithTags("ResourceTypes")
+                            .RequireAuthorization()
+                            .RequireTenant();
 
         group.MapGet("/", GetAll).WithName("ListResourceTypes");
         group.MapGet("/{id:guid}", GetById).WithName("GetResourceType");
-        group.MapPost("/", Create).WithName("CreateResourceType").RequireAuthorization();
-        group.MapPut("/{id:guid}", Update).WithName("UpdateResourceType").RequireAuthorization();
-        group.MapDelete("/{id:guid}", Delete).WithName("DeleteResourceType").RequireAuthorization();
+        group.MapPost("/", Create).WithName("CreateResourceType");
+        group.MapPut("/{id:guid}", Update).WithName("UpdateResourceType");
+        group.MapDelete("/{id:guid}", Delete).WithName("DeleteResourceType");
 
         return group;
     }
 
-    private static async Task<Results<Ok<PagedResult<ResourceTypeResponse>>, NotFound>> GetAll(
-        Guid orgId,
+    private static async Task<Ok<PagedResult<ResourceTypeResponse>>> GetAll(
         AppDbContext db,
         CancellationToken ct,
         int? page = null,
         int? pageSize = null)
     {
-        if (!await db.Organizations.AnyAsync(o => o.Id == orgId, ct))
-            return TypedResults.NotFound();
-
         var (p, s) = PageDefaults.Clamp(page, pageSize);
 
         var query = db.ResourceTypes
             .AsNoTracking()
-            .Where(rt => rt.OrganizationId == orgId)
             .OrderBy(rt => rt.Name);
 
         var total = await query.CountAsync(ct);
@@ -55,14 +53,13 @@ public static class ResourceTypeEndpoints
     }
 
     private static async Task<Results<Ok<ResourceTypeResponse>, NotFound>> GetById(
-        Guid orgId,
         Guid id,
         AppDbContext db,
         CancellationToken ct)
     {
         var resourceType = await db.ResourceTypes
             .AsNoTracking()
-            .Where(rt => rt.OrganizationId == orgId && rt.Id == id)
+            .Where(rt => rt.Id == id)
             .Select(rt => new ResourceTypeResponse(rt.Id, rt.OrganizationId, rt.Name, rt.Description))
             .FirstOrDefaultAsync(ct);
 
@@ -70,17 +67,12 @@ public static class ResourceTypeEndpoints
     }
 
     private static async Task<Results<Created<ResourceTypeResponse>, NotFound, ValidationProblem>> Create(
-        Guid orgId,
         CreateResourceTypeRequest request,
         AppDbContext db,
         CancellationToken ct)
     {
-        if (!await db.Organizations.AnyAsync(o => o.Id == orgId, ct))
-            return TypedResults.NotFound(); // orgId not found
-
         var resourceType = new ResourceType
         {
-            OrganizationId = orgId,
             Name = request.Name,
             Description = request.Description
         };
@@ -92,17 +84,16 @@ public static class ResourceTypeEndpoints
             resourceType.Id, resourceType.OrganizationId,
             resourceType.Name, resourceType.Description);
 
-        return TypedResults.Created($"/api/organizations/{orgId}/resource-types/{resourceType.Id}", response);
+        return TypedResults.Created($"/api/resource-types/{resourceType.Id}", response);
     }
 
     private static async Task<Results<NoContent, NotFound, ValidationProblem>> Update(
-        Guid orgId,
         Guid id,
         UpdateResourceTypeRequest request,
         AppDbContext db,
         CancellationToken ct)
     {
-        var resourceType = await db.ResourceTypes.FirstOrDefaultAsync(rt => rt.OrganizationId == orgId && rt.Id == id, ct);
+        var resourceType = await db.ResourceTypes.FirstOrDefaultAsync(rt => rt.Id == id, ct);
 
         if (resourceType is null) return TypedResults.NotFound();
 
@@ -114,12 +105,11 @@ public static class ResourceTypeEndpoints
     }
 
     private static async Task<Results<NoContent, NotFound, Conflict<ProblemDetails>>> Delete(
-        Guid orgId,
         Guid id,
         AppDbContext db,
         CancellationToken ct)
     {
-        var resourceType = await db.ResourceTypes.FirstOrDefaultAsync(rt => rt.OrganizationId == orgId && rt.Id == id, ct);
+        var resourceType = await db.ResourceTypes.FirstOrDefaultAsync(rt => rt.Id == id, ct);
 
         if (resourceType is null) return TypedResults.NotFound();
 

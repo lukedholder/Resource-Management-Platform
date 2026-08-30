@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using ResourcePlatform.Domain;
 using ResourcePlatform.Infrastructure;
 using ResourcePlatform.Web.Contracts;
+using ResourcePlatform.Web.Services;
 
 namespace ResourcePlatform.Web.Endpoints;
 
@@ -11,33 +12,31 @@ public static class LocationEndpoints
 {
     public static RouteGroupBuilder MapLocationEndpoints(this IEndpointRouteBuilder routes)
     {
-        // TEMP: {orgId} comes from the client.
-        var group = routes.MapGroup("/api/organizations/{orgId:guid}/locations").WithTags("Locations");
+        // No {orgId}. The tenant comes from the request context, validated against membership
+        var group = routes.MapGroup("/api/locations")
+                            .WithTags("Locations")
+                            .RequireAuthorization()
+                            .RequireTenant();
 
         group.MapGet("/", GetAll).WithName("ListLocations");
         group.MapGet("/{id:guid}", GetById).WithName("GetLocation");
-        group.MapPost("/", Create).WithName("CreateLocation").RequireAuthorization();
-        group.MapPut("/{id:guid}", Update).WithName("UpdateLocation").RequireAuthorization();
-        group.MapDelete("/{id:guid}", Delete).WithName("DeleteLocation").RequireAuthorization();
+        group.MapPost("/", Create).WithName("CreateLocation");
+        group.MapPut("/{id:guid}", Update).WithName("UpdateLocation");
+        group.MapDelete("/{id:guid}", Delete).WithName("DeleteLocation");
 
         return group;
     }
 
-    private static async Task<Results<Ok<PagedResult<LocationResponse>>, NotFound>> GetAll(
-        Guid orgId,
+    private static async Task<Ok<PagedResult<LocationResponse>>> GetAll(
         AppDbContext db,
         CancellationToken ct,
         int? page = null,
         int? pageSize = null)
     {
-        if (!await db.Organizations.AnyAsync(o => o.Id == orgId, ct))
-            return TypedResults.NotFound();
-
         var (p, s) = PageDefaults.Clamp(page, pageSize);
 
         var query = db.Locations
             .AsNoTracking()
-            .Where(l => l.OrganizationId == orgId)
             .OrderBy(l => l.Name);
 
         var total = await query.CountAsync(ct);
@@ -53,14 +52,12 @@ public static class LocationEndpoints
     }
 
     private static async Task<Results<Ok<LocationResponse>, NotFound>> GetById(
-        Guid orgId,
         Guid id,
         AppDbContext db,
         CancellationToken ct)
     {
         var location = await db.Locations
             .AsNoTracking()
-            .Where(l => l.OrganizationId == orgId && l.Id == id)
             .Select(l => new LocationResponse(l.Id, l.OrganizationId, l.Name, l.AddressLine1, l.City, l.State, l.PostalCode, l.TimeZoneId))
             .FirstOrDefaultAsync(ct);
 
@@ -68,14 +65,10 @@ public static class LocationEndpoints
     }
 
     private static async Task<Results<Created<LocationResponse>, NotFound, ValidationProblem>> Create(
-        Guid orgId,
         CreateLocationRequest request,
         AppDbContext db,
         CancellationToken ct)
     {
-        if (!await db.Organizations.AnyAsync(o => o.Id == orgId, ct))
-            return TypedResults.NotFound();
-
         if (!IsKnownTimeZone(request.TimeZoneId))
         {
             return TypedResults.ValidationProblem(new Dictionary<string, string[]>
@@ -84,9 +77,9 @@ public static class LocationEndpoints
             });
         }
 
+        // OrganizationId is deliberately not set here. SaveChangesAsync stamps it from the tenant context
         var location = new Location
         {
-            OrganizationId = orgId,
             Name = request.Name,
             AddressLine1 = request.AddressLine1,
             City = request.City,
@@ -103,17 +96,16 @@ public static class LocationEndpoints
             location.AddressLine1, location.City, location.State,
             location.PostalCode, location.TimeZoneId);
 
-        return TypedResults.Created($"/api/organizations/{orgId}/locations/{location.Id}", response);
+        return TypedResults.Created($"/api/locations/{location.Id}", response);
     }
 
     private static async Task<Results<NoContent, NotFound, ValidationProblem>> Update(
-        Guid orgId,
         Guid id,
         UpdateLocationRequest request,
         AppDbContext db,
         CancellationToken ct)
     {
-        var location = await db.Locations.FirstOrDefaultAsync(l => l.OrganizationId == orgId && l.Id == id, ct);
+        var location = await db.Locations.FirstOrDefaultAsync(l => l.Id == id, ct);
 
         if (location is null) return TypedResults.NotFound();
 
@@ -137,12 +129,11 @@ public static class LocationEndpoints
     }
 
     private static async Task<Results<NoContent, NotFound>> Delete(
-        Guid orgId,
         Guid id,
         AppDbContext db,
         CancellationToken ct)
     {
-        var location = await db.Locations.FirstOrDefaultAsync(l => l.OrganizationId == orgId && l.Id == id, ct);
+        var location = await db.Locations.FirstOrDefaultAsync(l => l.Id == id, ct);
 
         if (location is null) return TypedResults.NotFound();
 

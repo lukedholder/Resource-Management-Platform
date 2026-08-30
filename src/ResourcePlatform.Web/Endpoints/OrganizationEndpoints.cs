@@ -15,11 +15,15 @@ public static class OrganizationEndpoints
     // route registration
     public static RouteGroupBuilder MapOrganizationEndpoints(this IEndpointRouteBuilder routes)  // extension method
     {
-        var group = routes.MapGroup("/api/organizations").WithTags("Organizations");
+        // Organizations are the tenant boundry itself, so the group is NOT tenant-scoped
+        // access is controlled by membership isntead
+        var group = routes.MapGroup("/api/organizations")
+                            .WithTags("Organizations")
+                            .RequireAuthorization();
 
-        group.MapGet("/", GetAll)
-            .WithName("ListOrganizations")
-            .WithSummary("List organizations (paged).");
+        group.MapGet("/", GetMine)
+            .WithName("ListMyOrganizations")
+            .WithSummary("List organizations the current user belongs to.");
 
         group.MapGet("/{id:guid}", GetById)
             .WithName("GetOrganization")
@@ -33,37 +37,45 @@ public static class OrganizationEndpoints
         return group;
     }
 
-    private static async Task<Ok<PagedResult<OrganizationResponse>>> GetAll(
+    // route handlers
+    private static async Task<Ok<List<OrganizationResponse>>> GetMine(
         AppDbContext db,
-        CancellationToken ct,
-        int? page = null,
-        int? pageSize = null)
+        ICurrentUser currentUser,
+        CancellationToken ct)
     {
-        var (p, s) = PageDefaults.Clamp(page, pageSize);
+        var userId = currentUser.UserId!.Value;
 
-        var query = db.Organizations.AsNoTracking().OrderBy(o => o.Name);
-
-        var total = await query.CountAsync(ct);
-
-        var items = await query
-            .Skip((p - 1) * s)
-            .Take(s)
-            .Select(o => new OrganizationResponse(o.Id, o.Name, o.Slug, o.IsActive, o.CreatedAt))
+        // Deliberately cross-tenant. The question "Which organiztion do I belong to?"
+        // spans tenants by definition
+        var items = await db.Memberships
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(m => m.UserId == userId && m.Status == MembershipStatus.Active)
+            .OrderBy(m => m.Organization!.Name)  // order before projecting
+            .Select(m => new OrganizationResponse(
+                m.Organization!.Id, m.Organization.Name, m.Organization.Slug,
+                m.Organization.IsActive, m.Organization.CreatedAt))
             .ToListAsync(ct);
 
-        var totalPages = (int)Math.Ceiling(total / (double)s);
-        return TypedResults.Ok(new PagedResult<OrganizationResponse>(items, p, s, total, totalPages));
+        return TypedResults.Ok(items);
     }
 
     private static async Task<Results<Ok<OrganizationResponse>, NotFound>> GetById(
         Guid id,
         AppDbContext db,
+        ICurrentUser currentUser,
         CancellationToken ct)
     {
-        var org = await db.Organizations
+        var userId = currentUser.UserId!.Value;
+
+        // 404, not 403: a non-member must not be able to tell wether this organiztion exists
+        var org = await db.Memberships
+            .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(o => o.Id == id)
-            .Select(o => new OrganizationResponse(o.Id, o.Name, o.Slug, o.IsActive, o.CreatedAt))
+            .Where(m => m.UserId == userId && m.OrganizationId == id && m.Status == MembershipStatus.Active)
+            .Select(m => new OrganizationResponse(
+                m.Organization!.Id, m.Organization.Name, m.Organization.Slug,
+                m.Organization.IsActive, m.Organization.CreatedAt))
             .FirstOrDefaultAsync(ct);
 
         return org is null ? TypedResults.NotFound() : TypedResults.Ok(org);
@@ -78,14 +90,26 @@ public static class OrganizationEndpoints
         if (await db.Organizations.AsNoTracking().AnyAsync(o => o.Slug == request.Slug, ct))
             return SlugConflict(request.Slug);
 
+        var userId = currentUser.UserId!.Value;
+
         var org = new Organization
         {
             Name = request.Name,
             Slug = request.Slug,
-            CreatedByUserId = currentUser.UserId!.Value
+            CreatedByUserId = userId
+        };
+
+        // The creator becomes the owner. Organization + Membership are one atomic SaveChanges
+        var membership = new OrganizationMembership
+        {
+            OrganizationId = org.Id,
+            UserId = userId,
+            RoleId = SystemRoles.OwnerId,
+            Status = MembershipStatus.Active
         };
 
         db.Organizations.Add(org);
+        db.Memberships.Add(membership);
 
         try
         {

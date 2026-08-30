@@ -32,6 +32,14 @@ builder.Services.AddAuthorization();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
+// One TenantContext instanc per request, exposed through two interfaces:
+// the middleware writes it, everything else only reads it
+builder.Services.AddScoped<TenantContext>();
+builder.Services.AddScoped<ITenantContext>(sp =>
+    sp.GetRequiredService<TenantContext>());
+builder.Services.AddScoped<ITenantContextSetter>(sp =>
+    sp.GetRequiredService<TenantContext>());
+
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
@@ -46,11 +54,12 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.UseExceptionHandler();
+app.UseExceptionHandler();  //enable exception handler first so everything that follows can use it
 app.UseHttpsRedirection();
 app.UseStatusCodePages();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseTenantResolution();  // needs the authenticated user, so it runs after authentication
 
 app.MapGet("/", () => "Resource Management Platform API");
 

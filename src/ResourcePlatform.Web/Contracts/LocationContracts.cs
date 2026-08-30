@@ -11,7 +11,7 @@ public record LocationResponse(
     string? City,
     string? State,
     string? PostalCode,
-    string TimeSizeId);
+    string TimeZoneId);
 
 public record CreateLocationRequest(
     [property: Required, MaxLength(200)] string Name,

@@ -5,9 +5,11 @@ using ResourcePlatform.Domain;
 namespace ResourcePlatform.Infrastructure;
 
 
-public class AppDbContext(DbContextOptions<AppDbContext> options)
+public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenant)
     : IdentityUserContext<ApplicationUser, Guid>(options)
 {
+    private readonly ITenantContext _tenant = tenant;
+
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<OrganizationMembership> Memberships => Set<OrganizationMembership>();
     public DbSet<Role> Roles => Set<Role>();
@@ -155,6 +157,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .OnDelete(DeleteBehavior.Cascade);
 
             e.HasIndex(x => new { x.OrganizationId, x.Name }).IsUnique();
+
+            e.HasData(
+                new Role { Id = SystemRoles.OwnerId, Name = SystemRoles.Owner, IsSystemRole = true },
+                new Role { Id = SystemRoles.AdministratorId, Name = SystemRoles.Administrator, IsSystemRole = true },
+                new Role { Id = SystemRoles.ManagerId, Name = SystemRoles.Manager, IsSystemRole = true },
+                new Role { Id = SystemRoles.MemberId, Name = SystemRoles.Member, IsSystemRole = true },
+                new Role { Id = SystemRoles.ViewerId, Name = SystemRoles.Viewer, IsSystemRole = true });
         });
 
         b.Entity<Permission>(e =>
@@ -178,5 +187,38 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
                 .HasForeignKey(x => x.PermissionId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
+
+        // Tenant isolation: every tenant-owned entity is filtered by the current organization
+        // Guid.Empty (unresolved tenant) matches nothing, so the safe deafult is "no data"
+        b.Entity<Department>().HasQueryFilter(x => x.OrganizationId == _tenant.OrganizationId);
+        b.Entity<Location>().HasQueryFilter(x => x.OrganizationId == _tenant.OrganizationId);
+        b.Entity<ResourceType>().HasQueryFilter(x => x.OrganizationId == _tenant.OrganizationId);
+        b.Entity<Resource>().HasQueryFilter(x => x.OrganizationId == _tenant.OrganizationId);
+        b.Entity<Reservation>().HasQueryFilter(x => x.OrganizationId == _tenant.OrganizationId);
+        b.Entity<OrganizationMembership>().HasQueryFilter(x => x.OrganizationId == _tenant.OrganizationId);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        StampTenant();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    public override int SaveChanges()
+    {
+        StampTenant();
+        return base.SaveChanges();
+    }
+
+    private void StampTenant()
+    {
+        foreach (var entry in ChangeTracker.Entries<ITenantEntity>())
+        {
+            if (entry.State != EntityState.Added) continue;
+
+            var current = entry.Property(nameof(ITenantEntity.OrganizationId));
+            if (Equals(current.CurrentValue, Guid.Empty))
+                current.CurrentValue = _tenant.OrganizationId;
+        }
     }
 }
