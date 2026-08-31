@@ -2,6 +2,9 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using ResourcePlatform.Domain;
 
+// The DbSet is called Permissions too, so alias the catalog to keep both reachable
+using Perms = ResourcePlatform.Domain.Permissions;
+
 namespace ResourcePlatform.Infrastructure;
 
 
@@ -168,6 +171,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
 
         b.Entity<Permission>(e =>
         {
+            e.HasData(Perms.All.Select(n => new Permission { Id = Perms.IdFor(n), Name = n }));
             e.Property(x => x.Name).HasMaxLength(100).IsRequired();
             e.Property(x => x.Description).HasMaxLength(500);
             e.HasIndex(x => x.Name).IsUnique();
@@ -175,6 +179,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
 
         b.Entity<RolePermission>(e =>
         {
+            e.HasData(Perms.ByRole.SelectMany(kv =>
+                kv.Value.Select(n => new RolePermission
+                {
+                    RoleId = kv.Key,
+                    PermissionId = Perms.IdFor(n)
+                })));
+
             e.HasKey(x => new { x.RoleId, x.PermissionId });
 
             e.HasOne(x => x.Role)

@@ -58,8 +58,8 @@ app.UseExceptionHandler();  //enable exception handler first so everything that 
 app.UseHttpsRedirection();
 app.UseStatusCodePages();
 app.UseAuthentication();
-app.UseAuthorization();
 app.UseTenantResolution();  // needs the authenticated user, so it runs after authentication
+app.UseAuthorization();     // needs the resolved tenant to know which membership to look up, so it runs after Tenant Resolution
 
 app.MapGet("/", () => "Resource Management Platform API");
 
