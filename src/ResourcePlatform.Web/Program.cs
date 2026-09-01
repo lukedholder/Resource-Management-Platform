@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using ResourcePlatform.Web.Endpoints;
 using Microsoft.AspNetCore.Identity;
 using ResourcePlatform.Web.Services;
+using Microsoft.AspNetCore.Authorization;
 
 
 // Service Registration Phase (1): Describe what exists. Nothing runs. Nothing is created.
@@ -29,6 +30,11 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddSignInManager();
 
 builder.Services.AddAuthorization();
+
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionHandler>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 
@@ -71,6 +77,7 @@ app.MapAuthEndpoints();
 app.MapOrganizationEndpoints();
 app.MapLocationEndpoints();
 app.MapResourceTypeEndpoints();
+app.MapMemberEndpoints();
 
 
 app.Run();  // start listening, blocks forever

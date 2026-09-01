@@ -18,11 +18,20 @@ public static class LocationEndpoints
                             .RequireAuthorization()
                             .RequireTenant();
 
-        group.MapGet("/", GetAll).WithName("ListLocations");
-        group.MapGet("/{id:guid}", GetById).WithName("GetLocation");
-        group.MapPost("/", Create).WithName("CreateLocation");
-        group.MapPut("/{id:guid}", Update).WithName("UpdateLocation");
-        group.MapDelete("/{id:guid}", Delete).WithName("DeleteLocation");
+        group.MapGet("/", GetAll)
+            .WithName("ListLocations").RequirePermission(Permissions.LocationRead);
+
+        group.MapGet("/{id:guid}", GetById)
+            .WithName("GetLocation").RequirePermission(Permissions.LocationRead);
+
+        group.MapPost("/", Create)
+            .WithName("CreateLocation").RequirePermission(Permissions.LocationCreate);
+
+        group.MapPut("/{id:guid}", Update)
+            .WithName("UpdateLocation").RequirePermission(Permissions.LocationUpdate);
+
+        group.MapDelete("/{id:guid}", Delete)
+            .WithName("DeleteLocation").RequirePermission(Permissions.LocationDelete);
 
         return group;
     }

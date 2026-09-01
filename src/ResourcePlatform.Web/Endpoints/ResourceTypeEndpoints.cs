@@ -19,11 +19,20 @@ public static class ResourceTypeEndpoints
                             .RequireAuthorization()
                             .RequireTenant();
 
-        group.MapGet("/", GetAll).WithName("ListResourceTypes");
-        group.MapGet("/{id:guid}", GetById).WithName("GetResourceType");
-        group.MapPost("/", Create).WithName("CreateResourceType");
-        group.MapPut("/{id:guid}", Update).WithName("UpdateResourceType");
-        group.MapDelete("/{id:guid}", Delete).WithName("DeleteResourceType");
+        group.MapGet("/", GetAll)
+            .WithName("ListResourceTypes").RequirePermission(Permissions.ResourceTypeRead);
+
+        group.MapGet("/{id:guid}", GetById)
+            .WithName("GetResourceType").RequirePermission(Permissions.ResourceTypeRead);
+
+        group.MapPost("/", Create)
+            .WithName("CreateResourceType").RequirePermission(Permissions.ResourceTypeCreate);
+
+        group.MapPut("/{id:guid}", Update)
+            .WithName("UpdateResourceType").RequirePermission(Permissions.ResourceTypeUpdate);
+
+        group.MapDelete("/{id:guid}", Delete)
+            .WithName("DeleteResourceType").RequirePermission(Permissions.ResourceTypeDelete);
 
         return group;
     }
