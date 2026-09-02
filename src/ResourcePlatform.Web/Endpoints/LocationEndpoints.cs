@@ -67,6 +67,7 @@ public static class LocationEndpoints
     {
         var location = await db.Locations
             .AsNoTracking()
+            .Where(l => l.Id == id)
             .Select(l => new LocationResponse(l.Id, l.OrganizationId, l.Name, l.AddressLine1, l.City, l.State, l.PostalCode, l.TimeZoneId))
             .FirstOrDefaultAsync(ct);
 

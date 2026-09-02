@@ -78,6 +78,8 @@ app.MapOrganizationEndpoints();
 app.MapLocationEndpoints();
 app.MapResourceTypeEndpoints();
 app.MapMemberEndpoints();
+app.MapResourceEndpoints();
+app.MapReservationEndpoints();
 
 
 app.Run();  // start listening, blocks forever
