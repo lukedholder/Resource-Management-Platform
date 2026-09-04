@@ -7,7 +7,7 @@ namespace ResourcePlatform.IntegrationTests;
 /// <summary>
 /// An authenticated HttpClient plus the ids it was set up with.
 /// </summary>
-public sealed record Tenant(HttpClient Client, Guid OrganizationId, Guid UserId, string email);
+public sealed record Tenant(HttpClient Client, Guid OrganizationId, Guid UserId, string Email);
 
 public static class TestClient
 {
