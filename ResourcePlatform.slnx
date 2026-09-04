@@ -4,4 +4,8 @@
     <Project Path="src/ResourcePlatform.Infrastructure/ResourcePlatform.Infrastructure.csproj" />
     <Project Path="src/ResourcePlatform.Web/ResourcePlatform.Web.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ResourcePlatform.IntegrationTests/ResourcePlatform.IntegrationTests.csproj" />
+    <Project Path="tests/ResourcePlatform.UnitTests/ResourcePlatform.UnitTests.csproj" />
+  </Folder>
 </Solution>

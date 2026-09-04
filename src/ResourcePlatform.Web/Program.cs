@@ -86,3 +86,6 @@ app.Run();  // start listening, blocks forever
 
 
 public record PingResponse(string Status, DateTimeOffset TimestampUtc);
+
+
+public partial class Program { }    // Make Program visible

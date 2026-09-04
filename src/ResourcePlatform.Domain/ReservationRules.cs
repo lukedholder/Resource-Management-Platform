@@ -11,7 +11,7 @@ public static class ReservationRules
     public static readonly TimeSpan MinDuration = TimeSpan.FromMinutes(15);
 
     /// <summary>
-    /// Status that copy a resource. Cancelled and Rejected do not block,
+    /// Status that occopy a resource. Cancelled and Rejected do not block,
     /// and Completed is in the past.
     /// </summary>
     public static readonly ReservationStatus[] BlockingStatuses =
