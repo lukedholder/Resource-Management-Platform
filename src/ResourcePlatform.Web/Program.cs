@@ -6,10 +6,14 @@ using ResourcePlatform.Web.Endpoints;
 using Microsoft.AspNetCore.Identity;
 using ResourcePlatform.Web.Services;
 using Microsoft.AspNetCore.Authorization;
+using ResourcePlatform.Web.Components;
 
 
 // Service Registration Phase (1): Describe what exists. Nothing runs. Nothing is created.
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddRazorComponents();
+builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddOpenApi();
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -29,6 +33,12 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddEntityFrameworkStores<AppDbContext>()
 .AddSignInManager();
 
+builder.Services.ConfigureApplicationCookie(o =>
+{
+    o.LoginPath = "/login";
+    o.LogoutPath = "/ui/logout";
+    o.AccessDeniedPath = "/denied";
+});
 builder.Services.AddAuthorization();
 
 builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
@@ -67,7 +77,12 @@ app.UseAuthentication();
 app.UseTenantResolution();  // needs the authenticated user, so it runs after authentication
 app.UseAuthorization();     // needs the resolved tenant to know which membership to look up, so it runs after Tenant Resolution
 
-app.MapGet("/", () => "Resource Management Platform API");
+app.UseAntiforgery();
+
+app.MapStaticAssets();
+app.MapRazorComponents<App>();
+
+app.MapUiEndpoints();
 
 app.MapGet("/api/ping", () => new PingResponse("ok", DateTimeOffset.UtcNow))
     .WithName("Ping")

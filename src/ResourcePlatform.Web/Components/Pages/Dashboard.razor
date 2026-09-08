@@ -1,0 +1,39 @@
+@page "/dashboard"
+@attribute [Authorize]
+@inject AppDbContext Db
+@inject ITenantContext Tenant
+
+<PageTitle>Dashboard</PageTitle>
+<h1>Dashboard</h1>
+
+@if (!Tenant.IsResolved)
+{
+    <div class="card">
+        <p>No organization selected.</p>
+        <p><a href="/organizations">Choose one</a>.</p>
+    </div>
+}
+else
+{
+    <div class="cards">
+        <div class="card"><div class="stat">@resources</div><div class="stat-label">Resources</div></div>
+        <div class="card"><div class="stat">@locations</div><div class="stat-label">Locations</div></div>
+        <div class="card"><div class="stat">@upcoming</div><div class="stat-label">Upcoming reservations</div></div>
+        <div class="card"><div class="stat">@members</div><div class="stat-label">Members</div></div>
+    </div>
+}
+
+@code {
+    private int resources, locations, upcoming, members;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Tenant.IsResolved) return;
+
+        // No OrganizationId filters here: the global query filters already scope every count.
+        resources = await Db.Resources.CountAsync();
+        locations = await Db.Locations.CountAsync();
+        members   = await Db.Memberships.CountAsync();
+        upcoming  = await Db.Reservations.CountAsync(r => r.StartUtc >= DateTimeOffset.UtcNow);
+    }
+}

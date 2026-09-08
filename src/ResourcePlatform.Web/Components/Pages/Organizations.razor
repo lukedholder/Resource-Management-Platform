@@ -1,0 +1,58 @@
+@page "/organizations"
+@attribute [Authorize]
+@inject AppDbContext Db
+@inject ICurrentUser CurrentUser
+
+<PageTitle>Organizations</PageTitle>
+<h1>Your organizations</h1>
+
+@if (memberships is null)
+{
+    <p class="muted">Loading…</p>
+}
+else if (memberships.Count == 0)
+{
+    <div class="card"><p>You are not a member of any organization yet.</p></div>
+}
+else
+{
+    <table>
+        <thead><tr><th>Organization</th><th>Your role</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var m in memberships)
+        {
+            <tr>
+                <td>@m.Name</td>
+                <td>@m.Role</td>
+                <td>
+                    <form method="post" action="/ui/select-org" class="inline">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="organizationId" value="@m.Id" />
+                        <button class="link" type="submit">Open</button>
+                    </form>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<Row>? memberships;
+
+    private sealed record Row(Guid Id, string Name, string Role);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var userId = CurrentUser.UserId!.Value;
+
+        // Deliberately cross-tenant: this page exists to choose a tenant
+        memberships = await Db.Memberships
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(m => m.UserId == userId && m.Status == MembershipStatus.Active)
+            .OrderBy(m => m.Organization!.Name)
+            .Select(m => new Row(m.Organization!.Id, m.Organization.Name, m.Role!.Name))
+            .ToListAsync();
+    }
+}

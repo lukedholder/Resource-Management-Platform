@@ -1,0 +1,30 @@
+@inject ITenantContext Tenant
+
+<nav class="topbar">
+    <a class="brand" href="/">Resource Platform</a>
+
+    <AuthorizeView>
+        <Authorized>
+            @if (Tenant.IsResolved)
+            {
+                <a href="/dashboard">Dashboard</a>
+                <a href="/locations">Locations</a>
+                <a href="/resources">Resources</a>
+            }
+            <a href="/organizations">Organizations</a>
+
+            <span class="spacer"></span>
+            <span class="who">@context.User.Identity?.Name</span>
+
+            <form method="post" action="/ui/logout" class="inline">
+                <AntiforgeryToken />
+                <button type="submit" class="link">Sign out</button>
+            </form>
+        </Authorized>
+        <NotAuthorized>
+            <span class="spacer"></span>
+            <a href="/login">Sign in</a>
+            <a href="/register">Create account</a>
+        </NotAuthorized>
+    </AuthorizeView>
+</nav>

@@ -1,0 +1,72 @@
+@page "/resources"
+@attribute [Authorize]
+@inject AppDbContext Db
+@inject ITenantContext Tenant
+@inject IPermissionService Permissions
+
+<PageTitle>Resources</PageTitle>
+<h1>Resources</h1>
+
+@if (!Tenant.IsResolved)
+{
+    <div class="card"><p><a href="/organizations">Choose an organization</a> first.</p></div>
+}
+else if (!canRead)
+{
+    <div class="card"><p>You do not have permission to view resources.</p></div>
+}
+else if (rows.Count == 0)
+{
+    <div class="card"><p class="muted">No resources yet.</p></div>
+}
+else {
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Type</th><th>Location</th><th>Asset tag</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+        @foreach (var r in rows)
+        {
+            <tr>
+                <td>@r.Name</td>
+                <td>@r.Type</td>
+                <td>@(r.Location ?? "—")</td>
+                <td class="muted">@(r.AssetTag ?? "—")</td>
+                <td>@r.Status</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool canRead;
+    private List<Row> rows = [];
+
+    // Location and Department are optional on a Resource, so these are nullable.
+    private sealed record Row(
+        string Name,
+        string Type,
+        string? Location,
+        string? AssetTag,
+        ResourceStatus Status);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Tenant.IsResolved) return;
+
+        canRead = await Permissions.HasAsync(Domain.Permissions.ResourceRead);
+        if (!canRead) return;
+
+        rows = await Db.Resources
+            .AsNoTracking()
+            .OrderBy(r => r.Name)
+            .Select(r => new Row(
+                r.Name,
+                r.ResourceType!.Name,
+                r.Location!.Name,
+                r.AssetTag,
+                r.Status))
+            .ToListAsync();
+    }
+}

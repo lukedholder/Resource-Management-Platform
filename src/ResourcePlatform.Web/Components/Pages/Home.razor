@@ -1,0 +1,15 @@
+@page "/"
+
+<PageTitle>Resource Platform</PageTitle>
+
+<AuthorizeView>
+    <Authorized>
+        <h1>Welcome back</h1>
+        <p><a href="/organizations">Choose an organization</a> to get started.</p>
+    </Authorized>
+    <NotAuthorized>
+        <h1>Resource Platform</h1>
+        <p class="muted">Multi-tenant resource reservation for teams.</p>
+        <p><a href="/login">Sign in</a> or <a href="/register">create an account</a>.</p>
+    </NotAuthorized>
+</AuthorizeView>

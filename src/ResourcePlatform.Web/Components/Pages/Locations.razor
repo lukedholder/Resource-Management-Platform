@@ -1,0 +1,59 @@
+@page "/locations"
+@attribute [Authorize]
+@inject AppDbContext Db
+@inject ITenantContext Tenant
+@inject IPermissionService Permissions
+
+<PageTitle>Locations</PageTitle>
+<h1>Locations</h1>
+
+@if (!Tenant.IsResolved)
+{
+    <div class="card"><p><a href="/organizations">Choose an organization</a> first.</p></div>
+}
+else if (!canRead)
+{
+    <div class="card"><p>You do not have permission to view locations.</p></div>
+}
+else if (rows.Count == 0)
+{
+    <div class="card"><p class="muted">No locations yet.</p></div>
+}
+else
+{
+    <table>
+        <thead><tr><th>Name</th><th>City</th><th>State</th><th>Time zone</th></tr></thead>
+        <tbody>
+        @foreach (var r in rows)
+        {
+            <tr>
+                <td>@r.Name</td>
+                <td>@(r.City ?? "—")</td>
+                <td>@(r.State ?? "—")</td>
+                <td class="muted">@r.TimeZoneId</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+}
+
+@code {
+    private bool canRead;
+    private List<Row> rows = [];
+
+    private sealed record Row(string Name, string? City, string? State, string TimeZoneId);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Tenant.IsResolved) return;
+
+        canRead = await Permissions.HasAsync(Domain.Permissions.LocationRead);
+        if (!canRead) return;
+
+        rows = await Db.Locations
+            .AsNoTracking()
+            .OrderBy(l => l.Name)
+            .Select(l => new Row(l.Name, l.City, l.State, l.TimeZoneId))
+            .ToListAsync();
+    }
+}

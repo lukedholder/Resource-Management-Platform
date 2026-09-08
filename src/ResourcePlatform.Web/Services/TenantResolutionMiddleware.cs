@@ -38,7 +38,7 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next)
 
     /// <summary>
     /// API clients send a header. The Blazor UI cannot set one on a navigation,
-    /// so it uses a cookie instead. Either way membership is re-checked above.
+    /// so it uses a cookie instead. Either way membership is rechecked above.
     /// </summary>
     private static bool TryReadOrganizationId(HttpContext context, out Guid organizationId)
     {
