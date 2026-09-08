@@ -8,6 +8,7 @@ namespace ResourcePlatform.Web.Services;
 public sealed class TenantResolutionMiddleware(RequestDelegate next)
 {
     public const string HeaderName = "X-Organization-Id";
+    public const string CookieName = "rp_org";
 
     public async Task InvokeAsync(
         HttpContext context,
@@ -18,8 +19,7 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next)
         var userId = currentUser.UserId;
 
         if (userId is not null
-            && context.Request.Headers.TryGetValue(HeaderName, out var raw)
-            && Guid.TryParse(raw, out var organizationId))
+            && TryReadOrganizationId(context, out var organizationId))
         {
             // IgnoreQueryFilters: this is the one query that must look across tenants,
             // because it is the query that decides which tenant you are in
@@ -34,6 +34,24 @@ public sealed class TenantResolutionMiddleware(RequestDelegate next)
         }
 
         await next(context);
+    }
+
+    /// <summary>
+    /// API clients send a header. The Blazor UI cannot set one on a navigation,
+    /// so it uses a cookie instead. Either way membership is re-checked above.
+    /// </summary>
+    private static bool TryReadOrganizationId(HttpContext context, out Guid organizationId)
+    {
+        if (context.Request.Headers.TryGetValue(HeaderName, out var raw)
+            && Guid.TryParse(raw, out organizationId))
+            return true;
+
+        if (context.Request.Cookies.TryGetValue(CookieName, out var cookie)
+            && Guid.TryParse(cookie, out organizationId))
+            return true;
+
+        organizationId = Guid.Empty;
+        return false;
     }
 }
 
