@@ -42,56 +42,28 @@ public static class ReservationEndpoints
 
     private static async Task<Results<Created<ReservationResponse>, NotFound, ValidationProblem, Conflict<string>>> Create(
         CreateReservationRequest request,
-        AppDbContext db,
-        ICurrentUser currentUser,
+        BookingService booking,
         CancellationToken ct)
     {
-        var check = ReservationRules.Validate(request.StartUtc, request.EndUtc, DateTimeOffset.UtcNow);
-        if (!check.IsValid)
-            return TypedResults.ValidationProblem(new Dictionary<string, string[]> { ["StartUtc"] = [check.Error!] });
+        var result = await booking.BookAsync(request.ResourceId, request.StartUtc, request.EndUtc, request.Purpose, ct);
 
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-
-        // Take an update lock on the resource row for the life of this transaction.
-        // Every booking attempt for this resource must pass through here, so they serialize.
-        var resource = await db.Resources
-            .FromSql($"SELECT * FROM Resources WITH (UPDLOCK, HOLDLOCK) WHERE Id = {request.ResourceId}")
-            .FirstOrDefaultAsync(ct);
-
-        if (resource is null) return TypedResults.NotFound();
-
-        if (!resource.IsReservable)
-            return TypedResults.Conflict("That resource is not reservable.");
-
-        if (resource.Status is ResourceStatus.Maintenance or ResourceStatus.Retired or ResourceStatus.Unavailable)
-            return TypedResults.Conflict($"That resource is currently {resource.Status}.");
-
-        var conflict = await db.Reservations.AnyAsync(r =>
-            r.ResourceId == request.ResourceId &&
-            ReservationRules.BlockingStatuses.Contains(r.Status) &&
-            request.StartUtc < r.EndUtc && request.EndUtc > r.StartUtc, ct);
-
-        if (conflict) return TypedResults.Conflict("That time range conflicts with an existing reservation.");
-
-        var reservation = new Reservation
+        switch (result.Outcome)
         {
-            ResourceId = resource.Id,
-            CreatedByUserId = currentUser.UserId!.Value,
-            StartUtc = request.StartUtc,
-            EndUtc = request.EndUtc,
-            Purpose = request.Purpose,
-            Status = resource.RequiresApproval ? ReservationStatus.Pending : ReservationStatus.Approved
-        };
+            case BookingOutcome.ResourceNotFound:
+                return TypedResults.NotFound();
 
-        db.Reservations.Add(reservation);
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+            case BookingOutcome.Invalid:
+                return TypedResults.ValidationProblem(
+                    new Dictionary<string, string[]> { ["StartUtc"] = [result.Error!] });
 
+            case BookingOutcome.Conflict:
+                return TypedResults.Conflict(result.Error!);
+        }
+        
+        var r = result.Reservation!;
         return TypedResults.Created(
-            $"/api/reservations/{reservation.Id}",
-            new ReservationResponse(
-                reservation.Id, resource.Id, resource.Name, reservation.CreatedByUserId,
-                null, reservation.StartUtc, reservation.EndUtc, reservation.Status, reservation.Purpose)
-        );
+            $"/api/reservations/{r.Id}",
+            new ReservationResponse(r.Id, r.ResourceId, r.Resource!.Name, r.CreatedByUserId,
+                r.ApprovedByUserId, r.StartUtc, r.EndUtc, r.Status, r.Purpose));
     }
 }

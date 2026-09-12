@@ -12,7 +12,8 @@ using ResourcePlatform.Web.Components;
 // Service Registration Phase (1): Describe what exists. Nothing runs. Nothing is created.
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddRazorComponents();
+builder.Services.AddRazorComponents()
+    .AddInteractiveServerComponents();
 builder.Services.AddCascadingAuthenticationState();
 
 builder.Services.AddOpenApi();
@@ -56,6 +57,8 @@ builder.Services.AddScoped<ITenantContext>(sp =>
 builder.Services.AddScoped<ITenantContextSetter>(sp =>
     sp.GetRequiredService<TenantContext>());
 
+builder.Services.AddScoped<BookingService>();
+
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
@@ -80,7 +83,8 @@ app.UseAuthorization();     // needs the resolved tenant to know which membershi
 app.UseAntiforgery();
 
 app.MapStaticAssets();
-app.MapRazorComponents<App>();
+app.MapRazorComponents<App>()
+    .AddInteractiveServerRenderMode();
 
 app.MapUiEndpoints();
 
