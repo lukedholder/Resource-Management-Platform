@@ -1,0 +1,46 @@
+@rendermode InteractiveServer
+
+@* Interactive island: pure client-driven feedback, no database and no tenant.
+    The authoritative conflict check happens server-side on submit. *@
+
+<div class="preview">
+    <label for="startLocal">Start (UTC)</label>
+    <input id="startLocal" name = "startLocal" type="datetime-local" required
+        value="@start" @onchange="OnStartChanged" />
+
+    <label for="endLocal">End (UTC)</label>
+    <input id="endLocal" name = "endLocal" type="datetime-local" required
+        value="@end" @onchange="OnEndChanged" />
+
+    <p class="@(IsValid ? "muted" : "warn")">@Message</p>
+</div>
+
+@code {
+    private string? start;
+    private string? end;
+
+    private DateTime? StartValue => DateTime.TryParse(start, out var v) ? v : null;
+    private DateTime? EndValue => DateTime.TryParse(end, out var v) ? v : null;
+
+    private bool IsValid => StartValue is not null && EndValue is not null && EndValue > StartValue;
+
+    private string Message
+    {
+        get
+        {
+            if (StartValue is null || EndValue is null) return "Choose a start and end time.";
+            if (EndValue <= StartValue) return "End must be after start.";
+
+            var d = EndValue.Value - StartValue.Value;
+            if (d < ReservationRules.MinDuration) return $"Too short — minimum is {ReservationRules.MinDuration.TotalMinutes:0} minutes.";
+            if (d > TimeSpan.FromDays(ReservationRules.MaxDurationDays)) return $"Too long — maximum is {ReservationRules.MaxDurationDays} days.";
+
+            return d.TotalHours >= 1
+                ? $"Duration: {d.TotalHours:0.##} hour(s)"
+                : $"Duration: {d.TotalMinutes:0} minutes";
+        }
+    }
+
+    private void OnStartChanged(ChangeEventArgs e) => start = e.Value?.ToString();
+    private void OnEndChanged(ChangeEventArgs e) => end = e.Value?.ToString();
+}

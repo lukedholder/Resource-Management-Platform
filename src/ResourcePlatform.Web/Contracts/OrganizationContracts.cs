@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using ResourcePlatform.Domain;
 
 namespace ResourcePlatform.Web.Contracts;
 
@@ -11,10 +12,10 @@ public record OrganizationResponse(
     DateTimeOffset CreatedAt);
 
 public record CreateOrganizationRequest(
-    [property: Required, MaxLength(200)]
+    [property: Required, MaxLength(OrganizationRules.NameMaxLength)]
     string Name,
 
-    [property: Required, MaxLength(200)]
-    [property: RegularExpression("^[a-z0-9]+(-[a-z0-9]+)*$",
+    [property: Required, MaxLength(OrganizationRules.SlugMaxLength)]
+    [property: RegularExpression(OrganizationRules.SlugPattern,
         ErrorMessage = "Slug must be lowercase letters, digits, and single hyphens.")]
     string Slug);

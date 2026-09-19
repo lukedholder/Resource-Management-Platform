@@ -59,7 +59,7 @@ public static class ReservationEndpoints
             case BookingOutcome.Conflict:
                 return TypedResults.Conflict(result.Error!);
         }
-        
+
         var r = result.Reservation!;
         return TypedResults.Created(
             $"/api/reservations/{r.Id}",

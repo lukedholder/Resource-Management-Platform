@@ -30,3 +30,13 @@ input { width:100%; padding:.5rem; border:1px solid var(--line); border-radius:6
 .error { background:#fdecec; border:1px solid #f5c2c0; color:#8a1f1c;
          padding:.6rem .8rem; border-radius:6px; margin-bottom:1rem; }
 .muted { color:var(--muted); }
+
+h2 { font-size:1.15rem; margin:2rem 0 .75rem; }
+select { width:100%; padding:.5rem; border:1px solid var(--line); border-radius:6px;
+         font-size:1rem; background:#fff; }
+.check { display:flex; align-items:center; gap:.5rem; margin-top:.75rem; color:var(--text); }
+.check input { width:auto; }
+.preview { margin:.25rem 0; }
+.warn { color:#8a5b00; }
+
+.hint { font-size:.85rem; margin:.25rem 0 0; }

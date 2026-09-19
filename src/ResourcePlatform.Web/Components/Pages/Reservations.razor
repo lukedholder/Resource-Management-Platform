@@ -1,0 +1,124 @@
+@page "/reservations"
+@attribute [Authorize]
+@inject AppDbContext Db
+@inject ITenantContext Tenant
+@inject IPermissionService Permissions
+
+<PageTitle>Reservations</PageTitle>
+<h1>Reservations</h1>
+
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="error">@Error</div>
+}
+
+@if (!Tenant.IsResolved)
+{
+    <div class="card"><p><a href="/organizations">Choose an organization</a> first.</p></div>
+}
+else if (!canRead)
+{
+    <div class="card"><p>You do not have permission to view reservations.</p></div>
+}
+else
+{
+    @if (rows.Count == 0)
+    {
+        <div class="card"><p class="muted">No reservations yet.</p></div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>Resource</th><th>Start (UTC)</th><th>End (UTC)</th><th>Status</th><th>Purpose</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var r in rows)
+            {
+                <tr>
+                    <td>@r.Resource</td>
+                    <td>@r.StartUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@r.EndUtc.ToString("yyyy-MM-dd HH:mm")</td>
+                    <td>@r.Status</td>
+                    <td class="muted">@(r.Purpose ?? "—")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    @if (canCreate)
+    {
+        <h2>Book a resource</h2>
+
+        @if (bookable.Count == 0)
+        {
+            <div class="card"><p class="muted">There are no reservable resources yet. <a href="/resources">Add one</a>.</p></div>
+        }
+        else
+        {
+            <form method="post" action="/ui/reservations/create" class="stack card">
+                <AntiforgeryToken />
+
+                <label for="resourceId">Resource</label>
+                <select id="resourceId" name="resourceId" required>
+                    @foreach (var r in bookable)
+                    {
+                        <option value="@r.Id">@r.Name</option>
+                    }
+                </select>
+
+                <BookingDuration />
+
+                <label for="purpose">Purpose</label>
+                <input id="purpose" name="purpose" maxlength="1000" />
+
+                <button class="btn" type="submit">Book</button>
+            </form>
+        }
+    }
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    private bool canRead;
+    private bool canCreate;
+    private List<Row> rows = [];
+    private List<Option> bookable = [];
+
+    private sealed record Row(
+        string Resource,
+        DateTimeOffset StartUtc,
+        DateTimeOffset EndUtc,
+        ReservationStatus Status,
+        string? Purpose);
+
+    private sealed record Option(Guid Id, string Name);
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!Tenant.IsResolved) return;
+
+        canRead = await Permissions.HasAsync(Domain.Permissions.ReservationRead);
+        canCreate = await Permissions.HasAsync(Domain.Permissions.ReservationCreate);
+        if (!canRead) return;
+
+        rows = await Db.Reservations
+            .AsNoTracking()
+            .OrderBy(r => r.StartUtc)
+            .Select(r => new Row(r.Resource!.Name, r.StartUtc, r.EndUtc, r.Status, r.Purpose))
+            .ToListAsync();
+
+        if (canCreate)
+        {
+            bookable = await Db.Resources
+                .AsNoTracking()
+                .Where(r => r.IsReservable)
+                .OrderBy(r => r.Name)
+                .Select(r => new Option(r.Id, r.Name))
+                .ToListAsync();
+        }
+    }
+}

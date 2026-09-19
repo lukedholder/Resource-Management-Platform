@@ -7,6 +7,11 @@
 <PageTitle>Resources</PageTitle>
 <h1>Resources</h1>
 
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="error">@Error</div>
+}
+
 @if (!Tenant.IsResolved)
 {
     <div class="card"><p><a href="/organizations">Choose an organization</a> first.</p></div>
@@ -15,47 +20,128 @@ else if (!canRead)
 {
     <div class="card"><p>You do not have permission to view resources.</p></div>
 }
-else if (rows.Count == 0)
+else
 {
-    <div class="card"><p class="muted">No resources yet.</p></div>
-}
-else {
-    <table>
-        <thead>
-            <tr><th>Name</th><th>Type</th><th>Location</th><th>Asset tag</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-        @foreach (var r in rows)
+    @if (rows.Count == 0)
+    {
+        <div class="card"><p class="muted">No resources yet.</p></div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>Name</th><th>Type</th><th>Location</th><th>Asset tag</th><th>Status</th><th>Approval</th></tr>
+            </thead>
+            <tbody>
+            @foreach (var r in rows)
+            {
+                <tr>
+                    <td>@r.Name</td>
+                    <td>@r.Type</td>
+                    <td>@(r.Location ?? "—")</td>
+                    <td class="muted">@(r.AssetTag ?? "—")</td>
+                    <td>@r.Status</td>
+                    <td>@(r.RequiresApproval ? "Required" : "—")</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    @if (canCreateType)
+    {
+        <h2>Add a resource type</h2>
+        <form method="post" action="/ui/resource-types/create" class="stack card">
+            <AntiforgeryToken />
+
+            <label for="typeName">Name</label>
+            <input id="typeName" name="name" required maxlength="200" placeholder="Conference Room" />
+
+            <label for="typeDescription">Description</label>
+            <input id="typeDescription" name="description" maxlength="1000" />
+
+            <button class="btn" type="submit">Add type</button>
+        </form>
+    }
+
+    @if (canCreate)
+    {
+        <h2>Add a resource</h2>
+
+        @if (types.Count == 0)
         {
-            <tr>
-                <td>@r.Name</td>
-                <td>@r.Type</td>
-                <td>@(r.Location ?? "—")</td>
-                <td class="muted">@(r.AssetTag ?? "—")</td>
-                <td>@r.Status</td>
-            </tr>
+            <div class="card"><p class="muted">Add a resource type first — every resource needs one.</p></div>
         }
-        </tbody>
-    </table>
+        else
+        {
+            <form method="post" action="/ui/resources/create" class="stack card">
+                <AntiforgeryToken />
+
+                <label for="name">Name</label>
+                <input id="name" name="name" required maxlength="200" />
+
+                <label for="resourceTypeId">Type</label>
+                <select id="resourceTypeId" name="resourceTypeId" required>
+                    @foreach (var t in types)
+                    {
+                        <option value="@t.Id">@t.Name</option>
+                    }
+                </select>
+
+                <label for="locationId">Location</label>
+                <select id="locationId" name="locationId">
+                    @* An empty value="" fails to bind to Guid?, so "none" is Guid.Empty. *@
+                    <option value="@Guid.Empty">(no location)</option>
+                    @foreach (var l in locations)
+                    {
+                        <option value="@l.Id">@l.Name</option>
+                    }
+                </select>
+
+                <label for="assetTag">Asset tag</label>
+                <input id="assetTag" name="assetTag" maxlength="100" />
+
+                <label class="check">
+                    @* value="true" matters: without it an unchecked box sends nothing and a checked one sends "on". *@
+                    <input type="checkbox" name="requiresApproval" value="true" />
+                    Bookings require approval
+                </label>
+
+                <button class="btn" type="submit">Add resource</button>
+            </form>
+        }
+    }
 }
 
 @code {
-    private bool canRead;
-    private List<Row> rows = [];
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
 
-    // Location and Department are optional on a Resource, so these are nullable.
+    private bool canRead;
+    private bool canCreate;
+    private bool canCreateType;
+    private List<Row> rows = [];
+    private List<Option> types = [];
+    private List<Option> locations = [];
+
+    // Location and AssetTag are optional on a Resource, so these are nullable.
     private sealed record Row(
         string Name,
         string Type,
         string? Location,
         string? AssetTag,
-        ResourceStatus Status);
+        ResourceStatus Status,
+        bool RequiresApproval);
+
+    private sealed record Option(Guid Id, string Name);
 
     protected override async Task OnInitializedAsync()
     {
         if (!Tenant.IsResolved) return;
 
         canRead = await Permissions.HasAsync(Domain.Permissions.ResourceRead);
+        canCreate = await Permissions.HasAsync(Domain.Permissions.ResourceCreate);
+        canCreateType = await Permissions.HasAsync(Domain.Permissions.ResourceTypeCreate);
         if (!canRead) return;
 
         rows = await Db.Resources
@@ -66,7 +152,23 @@ else {
                 r.ResourceType!.Name,
                 r.Location!.Name,
                 r.AssetTag,
-                r.Status))
+                r.Status,
+                r.RequiresApproval))
             .ToListAsync();
+
+        if (canCreate)
+        {
+            types = await Db.ResourceTypes
+                .AsNoTracking()
+                .OrderBy(t => t.Name)
+                .Select(t => new Option(t.Id, t.Name))
+                .ToListAsync();
+
+            locations = await Db.Locations
+                .AsNoTracking()
+                .OrderBy(l => l.Name)
+                .Select(l => new Option(l.Id, l.Name))
+                .ToListAsync();
+        }
     }
 }

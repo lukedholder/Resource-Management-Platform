@@ -7,6 +7,11 @@
 <PageTitle>Locations</PageTitle>
 <h1>Locations</h1>
 
+@if (!string.IsNullOrEmpty(Error))
+{
+    <div class="error">@Error</div>
+}
+
 @if (!Tenant.IsResolved)
 {
     <div class="card"><p><a href="/organizations">Choose an organization</a> first.</p></div>
@@ -15,45 +20,89 @@ else if (!canRead)
 {
     <div class="card"><p>You do not have permission to view locations.</p></div>
 }
-else if (rows.Count == 0)
-{
-    <div class="card"><p class="muted">No locations yet.</p></div>
-}
 else
 {
-    <table>
-        <thead><tr><th>Name</th><th>City</th><th>State</th><th>Time zone</th></tr></thead>
-        <tbody>
-        @foreach (var r in rows)
-        {
-            <tr>
-                <td>@r.Name</td>
-                <td>@(r.City ?? "—")</td>
-                <td>@(r.State ?? "—")</td>
-                <td class="muted">@r.TimeZoneId</td>
-            </tr>
-        }
-        </tbody>
-    </table>
+    @if (rows.Count == 0)
+    {
+        <div class="card"><p class="muted">No locations yet.</p></div>
+    }
+    else
+    {
+        <table>
+            <thead>
+                <tr><th>Name</th><th>City</th><th>State</th><th>Time zone</th><th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var r in rows)
+            {
+                <tr>
+                    <td>@r.Name</td>
+                    <td>@(r.City ?? "—")</td>
+                    <td>@(r.State ?? "—")</td>
+                    <td class="muted">@r.TimeZoneId</td>
+                    <td>
+                        @if (canDelete)
+                        {
+                            <form method="post" action="/ui/locations/delete" class="inline">
+                                <AntiforgeryToken />
+                                <input type="hidden" name="id" value="@r.Id" />
+                                <button class="link" type="submit">Delete</button>
+                            </form>
+                        }
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    }
+
+    @if (canCreate)
+    {
+        <h2>Add a location</h2>
+        <form method="post" action="/ui/locations/create" class="stack card">
+            <AntiforgeryToken />
+
+            <label for="name">Name</label>
+            <input id="name" name="name" required maxlength="200" />
+
+            <label for="city">City</label>
+            <input id="city" name="city" maxlength="100" />
+
+            <label for="state">State</label>
+            <input id="state" name="state" maxlength="100" />
+
+            <label for="timeZoneId">Time zone</label>
+            <input id="timeZoneId" name="timeZoneId" required maxlength="100" value="America/Chicago" />
+
+            <button class="btn" type="submit">Add location</button>
+        </form>
+    }
 }
 
 @code {
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
     private bool canRead;
+    private bool canCreate;
+    private bool canDelete;
     private List<Row> rows = [];
 
-    private sealed record Row(string Name, string? City, string? State, string TimeZoneId);
+    private sealed record Row(Guid Id, string Name, string? City, string? State, string TimeZoneId);
 
     protected override async Task OnInitializedAsync()
     {
         if (!Tenant.IsResolved) return;
 
         canRead = await Permissions.HasAsync(Domain.Permissions.LocationRead);
+        canCreate = await Permissions.HasAsync(Domain.Permissions.LocationCreate);
+        canDelete = await Permissions.HasAsync(Domain.Permissions.LocationDelete);
         if (!canRead) return;
 
         rows = await Db.Locations
             .AsNoTracking()
             .OrderBy(l => l.Name)
-            .Select(l => new Row(l.Name, l.City, l.State, l.TimeZoneId))
+            .Select(l => new Row(l.Id, l.Name, l.City, l.State, l.TimeZoneId))
             .ToListAsync();
     }
 }

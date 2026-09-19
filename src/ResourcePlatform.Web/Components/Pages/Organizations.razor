@@ -6,13 +6,14 @@
 <PageTitle>Organizations</PageTitle>
 <h1>Your organizations</h1>
 
-@if (memberships is null)
+@if (!string.IsNullOrEmpty(Error))
 {
-    <p class="muted">Loading…</p>
+    <div class="error">@Error</div>
 }
-else if (memberships.Count == 0)
+
+@if (memberships.Count == 0)
 {
-    <div class="card"><p>You are not a member of any organization yet.</p></div>
+    <div class="card"><p>You are not a member of any organization yet. Create one below.</p></div>
 }
 else
 {
@@ -37,8 +38,29 @@ else
     </table>
 }
 
+<h2>Create an organization</h2>
+<form method="post" action="/ui/organizations/create" class="stack card">
+    <AntiforgeryToken />
+
+    <label for="name">Name</label>
+    <input id="name" name="name" required maxlength="@OrganizationRules.NameMaxLength"
+           placeholder="Nashville Medical Group" />
+
+    <label for="slug">URL name <span class="muted">(optional)</span></label>
+    <input id="slug" name="slug" maxlength="@OrganizationRules.SlugMaxLength"
+           pattern="@OrganizationRules.SlugPattern.Trim('^', '$')"
+           title="Lowercase letters, digits, and single hyphens"
+           placeholder="nashville-medical-group" />
+    <p class="muted hint">Leave blank to generate one from the name.</p>
+
+    <button class="btn" type="submit">Create organization</button>
+</form>
+
 @code {
-    private List<Row>? memberships;
+    [SupplyParameterFromQuery(Name = "error")]
+    private string? Error { get; set; }
+
+    private List<Row> memberships = [];
 
     private sealed record Row(Guid Id, string Name, string Role);
 

@@ -45,7 +45,7 @@ public sealed class BookingService(AppDbContext db, ICurrentUser currentUser)
             ReservationRules.BlockingStatuses.Contains(r.Status) &&
             startUtc < r.EndUtc && endUtc > r.StartUtc, ct);
 
-        if (clash) return BookingResult.Conflict("That time range conflicts with an existing reservation");
+        if (clash) return BookingResult.Conflict("That time range conflicts with an existing reservation.");
 
         var reservation = new Reservation
         {

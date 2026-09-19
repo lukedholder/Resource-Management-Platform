@@ -58,6 +58,7 @@ builder.Services.AddScoped<ITenantContextSetter>(sp =>
     sp.GetRequiredService<TenantContext>());
 
 builder.Services.AddScoped<BookingService>();
+builder.Services.AddScoped<OrganizationService>();
 
 builder.Services.ConfigureHttpJsonOptions(o =>
     o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));

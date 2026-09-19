@@ -36,8 +36,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext
 
         b.Entity<Organization>(e =>
         {
-            e.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            e.Property(x => x.Slug).HasMaxLength(100).IsRequired();
+            e.Property(x => x.Name).HasMaxLength(OrganizationRules.NameMaxLength).IsRequired();
+            e.Property(x => x.Slug).HasMaxLength(OrganizationRules.SlugMaxLength).IsRequired();
             e.HasIndex(x => x.Slug).IsUnique();
         });
 

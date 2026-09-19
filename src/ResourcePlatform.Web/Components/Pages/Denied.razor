@@ -1,0 +1,21 @@
+@page "/denied"
+
+<PageTitle>Not allowed</PageTitle>
+<h1>You don't have permission to do that</h1>
+
+<div class="card">
+    <p>Your role in this organization doesn't include that action.</p>
+
+    @if (!string.IsNullOrEmpty(ReturnUrl))
+    {
+        <p class="muted">Attempted: <code>@ReturnUrl</code></p>
+    }
+
+    <p>If you think you should be able to, ask an Owner or Administrator to change your role.</p>
+    <p><a href="/dashboard">Back to the dashboard</a></p>
+</div>
+
+@code {
+    [SupplyParameterFromQuery]
+    private string? ReturnUrl { get; set; }
+}

@@ -1,6 +1,5 @@
-using Microsoft.AspNetCore.Http.HttpResults;    // Ok<>, NotFound, Create<>, Conflict<>, Results<>
+using Microsoft.AspNetCore.Http.HttpResults;    // Ok<>, NotFound, Created<>, Conflict<>, ValidationProblem, Results<>
 using Microsoft.AspNetCore.Mvc;                 // ProblemDetails
-using Microsoft.Data.SqlClient;                 // SqlException
 using Microsoft.EntityFrameworkCore;
 using ResourcePlatform.Domain;
 using ResourcePlatform.Infrastructure;
@@ -15,8 +14,8 @@ public static class OrganizationEndpoints
     // route registration
     public static RouteGroupBuilder MapOrganizationEndpoints(this IEndpointRouteBuilder routes)  // extension method
     {
-        // Organizations are the tenant boundry itself, so the group is NOT tenant-scoped
-        // access is controlled by membership isntead
+        // Organizations are the tenant boundary itself, so the group is NOT tenant-scoped
+        // access is controlled by membership instead
         var group = routes.MapGroup("/api/organizations")
                             .WithTags("Organizations")
                             .RequireAuthorization();
@@ -45,7 +44,7 @@ public static class OrganizationEndpoints
     {
         var userId = currentUser.UserId!.Value;
 
-        // Deliberately cross-tenant. The question "Which organiztion do I belong to?"
+        // Deliberately cross-tenant. The question "Which organization do I belong to?"
         // spans tenants by definition
         var items = await db.Memberships
             .IgnoreQueryFilters()
@@ -68,7 +67,7 @@ public static class OrganizationEndpoints
     {
         var userId = currentUser.UserId!.Value;
 
-        // 404, not 403: a non-member must not be able to tell wether this organiztion exists
+        // 404, not 403: a non-member must not be able to tell whether this organization exists
         var org = await db.Memberships
             .IgnoreQueryFilters()
             .AsNoTracking()
@@ -81,58 +80,30 @@ public static class OrganizationEndpoints
         return org is null ? TypedResults.NotFound() : TypedResults.Ok(org);
     }
 
-    private static async Task<Results<Created<OrganizationResponse>, Conflict<ProblemDetails>>> Create(
+    private static async Task<Results<Created<OrganizationResponse>, Conflict<ProblemDetails>, ValidationProblem>> Create(
         CreateOrganizationRequest request,
-        AppDbContext db,
-        ICurrentUser currentUser,
+        OrganizationService organizations,
         CancellationToken ct)
     {
-        if (await db.Organizations.AsNoTracking().AnyAsync(o => o.Slug == request.Slug, ct))
-            return SlugConflict(request.Slug);
+        var result = await organizations.CreateAsync(request.Name, request.Slug, ct);
 
-        var userId = currentUser.UserId!.Value;
-
-        var org = new Organization
+        switch (result.Outcome)
         {
-            Name = request.Name,
-            Slug = request.Slug,
-            CreatedByUserId = userId
-        };
+            case OrganizationOutcome.Invalid:
+                return TypedResults.ValidationProblem(
+                    new Dictionary<string, string[]> { ["Slug"] = [result.Error!] });
 
-        // The creator becomes the owner. Organization + Membership are one atomic SaveChanges
-        var membership = new OrganizationMembership
-        {
-            OrganizationId = org.Id,
-            UserId = userId,
-            RoleId = SystemRoles.OwnerId,
-            Status = MembershipStatus.Active
-        };
-
-        db.Organizations.Add(org);
-        db.Memberships.Add(membership);
-
-        try
-        {
-            await db.SaveChangesAsync(ct);
-        }
-        catch (DbUpdateException ex) when (IsUniqueViolation(ex))
-        {
-            // List a race: another request inserted the same slug between the check above and this save
-            return SlugConflict(request.Slug);
+            case OrganizationOutcome.SlugTaken:
+                return TypedResults.Conflict(new ProblemDetails
+                {
+                    Title = "Slug already in use",
+                    Detail = $"An organization with slug '{request.Slug}' already exists.",
+                    Status = StatusCodes.Status409Conflict
+                });
         }
 
+        var org = result.Organization!;
         var response = new OrganizationResponse(org.Id, org.Name, org.Slug, org.IsActive, org.CreatedAt);
         return TypedResults.Created($"/api/organizations/{org.Id}", response);
     }
-
-    private static Conflict<ProblemDetails> SlugConflict(string slug) =>
-        TypedResults.Conflict(new ProblemDetails
-        {
-            Title = "Slug already in use",
-            Detail = $"An organization with slug '{slug}' already exists.",
-            Status = StatusCodes.Status409Conflict
-        });
-
-    private static bool IsUniqueViolation(DbUpdateException ex) =>
-        ex.InnerException is SqlException { Number: 2601 or 2627 };
 }
